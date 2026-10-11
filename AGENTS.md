@@ -5,7 +5,7 @@ Handoff notes for any agent continuing this port. Read this before editing.
 ## Target
 
 - Client: WoW 3.3.5a (Lua 5.1, interface 30300), private server "FrostmourneRebuffed" (Whitemane launcher).
-- The client ships `rebuffed.dll`, which provides an awesome_wotlk-style `C_NamePlate` (GetNamePlates, GetNamePlateForUnit, `nameplateN` unit tokens, NAME_PLATE_UNIT_ADDED/REMOVED).
+- The client ships `rebuffed.dll`, which provides an awesome_wotlk-style `C_NamePlate` (GetNamePlates, GetNamePlateForUnit, `nameplateN` unit tokens, NAME_PLATE_UNIT_ADDED/REMOVED). This is a hard requirement: there is no fallback for native 3.3.5 plates, so other 3.3.5a clients need awesome_wotlk (listed in README.md and release notes).
 - Source: retail Plater-v576a. Loaded via `Plater.toc` (`## Interface: 30300`). `Plater_Wrath.toc`, `Plater_Mainline.toc`, `Plater_Vanilla.toc` are retail leftovers and are not used by this client.
 - **Self-contained**: must not depend on `!!!ClassicAPI` or any other shim addon.
 - User tests in game and pastes BugGrabber errors; fix iteratively. Errors usually look like `Plater-Plater-v576a-335\File.lua:LINE: ...`.
