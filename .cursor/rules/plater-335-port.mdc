@@ -1,0 +1,14 @@
+---
+description: Plater 3.3.5a backport conventions (PLATER335_ENV, compat layer, WotLK mods)
+alwaysApply: true
+---
+
+# Plater 3.3.5a backport
+
+Before changing anything in this addon, read `AGENTS.md` in the Plater folder (architecture, rules, open items).
+
+- Every Lua file starts with `setfenv(1, PLATER335_ENV);` — keep it, add it to new files.
+- Missing retail APIs go into `Plater_335Compat.lua` as `env.Name = ...` (never into `_G`); bump `PLATER335_VERSION`.
+- New features ship as Plater mods/scripts in `Plater_WotlkMods.lua`; bump `SEED_VERSION` so profiles get them.
+- Lua 5.1 / WoW 3.3.5a only. No dependency on `!!!ClassicAPI`.
+- Never commit or edit WTF SavedVariables while the game is running.
