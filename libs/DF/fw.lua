@@ -271,7 +271,7 @@ function DF.UnitGroupRolesAssigned(unitId, bUseSupport, specId)
 			return "DAMAGER"
 		end
 
-		if (Details) then
+		if (Details and type(Details.cached_roles) == "table") then
 			--attempt to get the role from Details! Damage Meter
 			local guid = UnitGUID(unitId)
 			if (guid) then

@@ -14,7 +14,7 @@ local envMeta = {__index = realG}
 local env = setmetatable({}, envMeta)
 env._G = env
 PLATER335_ENV = env
-PLATER335_VERSION = 16
+PLATER335_VERSION = 17
 
 local Compat = {}
 env.Plater335 = Compat
@@ -1072,7 +1072,8 @@ local function deliver(self, handler, event, arg1, ...)
 	local filter = self.__p335units and self.__p335units[event]
 	if filter and arg1 and not filter[arg1] then return end
 	if SPELLCAST_EVENTS[event] then
-		return handler(self, event, arg1, nil, Compat.GetCastSpellID(arg1, (...)))
+		local spellName, rank, castID = ...
+		return handler(self, event, arg1, castID, Compat.GetCastSpellID(arg1, spellName))
 	end
 	return handler(self, event, arg1, ...)
 end
@@ -1476,11 +1477,12 @@ local function pollToken(token)
 					dispatch(notInterruptible and "UNIT_SPELLCAST_NOT_INTERRUPTIBLE" or "UNIT_SPELLCAST_INTERRUPTIBLE", token)
 				end
 			end
-			st.casting, st.castName, st.castStart, st.castEnd, st.notInterruptible = true, name, startTime, endTime, notInterruptible
+			st.casting, st.castName, st.castStart, st.castEnd, st.notInterruptible, st.castID = true, name, startTime, endTime, notInterruptible, castID
 		elseif st.casting then
 			st.casting = nil
-			if st.interrupted then dispatch("UNIT_SPELLCAST_INTERRUPTED", token, st.castName) end
-			dispatch("UNIT_SPELLCAST_STOP", token, st.castName)
+			if st.interrupted then dispatch("UNIT_SPELLCAST_INTERRUPTED", token, st.castName, nil, st.castID) end
+			dispatch("UNIT_SPELLCAST_STOP", token, st.castName, nil, st.castID)
+			st.castID = nil
 			st.interrupted = nil
 		end
 

@@ -1469,8 +1469,8 @@ detailsFramework.CastFrameFunctions = {
 			name = name or siName
 			text = text or siName
 			if not startTime then
-				startTime = GetTime()
-				endTime = startTime + siCastTime
+				startTime = GetTime() * 1000
+				endTime = startTime + (siCastTime or 0)
 			end
 		end
 
@@ -1586,7 +1586,7 @@ detailsFramework.CastFrameFunctions = {
 		local unitID, castID, spellID = ...
 		local name, text, texture, startTime, endTime, isTradeSkill, notInterruptible, uciSpellID, _, numStages = CastInfo.UnitChannelInfo (unit)
 		spellID = uciSpellID or spellID
-		castID = uciCastID or castID
+		--UnitChannelInfo has no cast ID; use the event ID when available.
 		
 		if spellID and (not name or not texture or not text) then
 			local siName, _, siIcon, siCastTime = GetSpellInfo(spellID)
@@ -1594,8 +1594,8 @@ detailsFramework.CastFrameFunctions = {
 			name = name or siName
 			text = text or siName
 			if not startTime then
-				startTime = GetTime()
-				endTime = startTime + siCastTime
+				startTime = GetTime() * 1000
+				endTime = startTime + (siCastTime or 0)
 			end
 		end
 
