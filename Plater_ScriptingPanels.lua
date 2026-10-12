@@ -1112,13 +1112,15 @@ end
 		
 		self.ScriptId = script_id
 		self.Data = data
-		self.Icon:SetTexture (icon_texture)
+		self.Icon:SetTexture (Plater335.ResolveIcon (icon_texture))
 		self.Icon:SetTexCoord (.1, .9, .1, .9)
 		self.ScriptName:SetText (script_name)
 		
 		local scriptTypeName = self.MainFrame.GetScriptTriggerTypeName (script_type)
 		self.ScriptType:SetText (scriptTypeName)
 		
+		--3.3.5 does not raise child frames along with their parent, keep the checkbox clickable above its line
+		self.EnabledCheckbox:SetFrameLevel (self:GetFrameLevel() + 3)
 		self.EnabledCheckbox:SetValue (data.Enabled)
 
 		self.EnabledCheckbox:SetFixedParameter (script_id)
@@ -1153,7 +1155,7 @@ end
 		
 		GameCooltip:AddLine (scriptObject.Name, nil, 1, "yellow", "yellow", 11, "Friz Quadrata TT", "OUTLINE")
 		if (scriptObject.Icon ~= "") then
-			GameCooltip:AddIcon (scriptObject.Icon)
+			GameCooltip:AddIcon (Plater335.ResolveIcon (scriptObject.Icon))
 		end
 
 		if lastEdited then
@@ -1410,7 +1412,7 @@ end
 					local age = timeToday - scriptObject.__TrashAt
 
 					GameCooltip:AddLine (scriptObject.Name, floor (age/60/60/24) .. " days")
-					GameCooltip:AddIcon (scriptObject.Icon  ~= "" and scriptObject.Icon or [[Interface\ICONS\INV_Misc_QuestionMark]], 1, 1, 20, 20)
+					GameCooltip:AddIcon (scriptObject.Icon  ~= "" and Plater335.ResolveIcon (scriptObject.Icon) or [[Interface\ICONS\INV_Misc_QuestionMark]], 1, 1, 20, 20)
 					GameCooltip:AddMenu (1, restore_from_trashcan, i)
 				end
 			end
@@ -2305,7 +2307,7 @@ function Plater.CreateHookingPanel()
 		--set the data from the object in the widgets
 		hookFrame.ScriptNameTextEntry.text =  scriptObject.Name
 		hookFrame.ScriptNameTextEntry:ClearFocus()
-		hookFrame.ScriptIconButton:SetIcon (scriptObject.Icon)
+		hookFrame.ScriptIconButton:SetIcon (Plater335.ResolveIcon (scriptObject.Icon))
 		hookFrame.ScriptIconButtonTexture = scriptObject.Icon
 		hookFrame.ScriptDescTextEntry.text = scriptObject.Desc or ""
 		hookFrame.ScriptDescTextEntry:ClearFocus()
@@ -3651,7 +3653,7 @@ function Plater.CreateScriptingPanel()
 		--set the data from the object in the widgets
 			scriptingFrame.ScriptNameTextEntry.text =  scriptObject.Name
 			scriptingFrame.ScriptNameTextEntry:ClearFocus()
-			scriptingFrame.ScriptIconButton:SetIcon (scriptObject.Icon)
+			scriptingFrame.ScriptIconButton:SetIcon (Plater335.ResolveIcon (scriptObject.Icon))
 			scriptingFrame.ScriptIconButtonTexture = scriptObject.Icon
 			scriptingFrame.ScriptDescTextEntry.text = scriptObject.Desc or ""
 			scriptingFrame.ScriptDescTextEntry:ClearFocus()

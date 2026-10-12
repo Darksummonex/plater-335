@@ -14,10 +14,18 @@ local envMeta = {__index = realG}
 local env = setmetatable({}, envMeta)
 env._G = env
 PLATER335_ENV = env
-PLATER335_VERSION = 17
+PLATER335_VERSION = 19
 
 local Compat = {}
 env.Plater335 = Compat
+
+--Inline role icons were added after 3.3.5; keep these constants private.
+env.DAMAGER = realG.DAMAGER or "Damage"
+env.HEALER = realG.HEALER or "Healer"
+env.TANK = realG.TANK or "Tank"
+env.INLINE_DAMAGER_ICON = realG.INLINE_DAMAGER_ICON or "|TInterface\\LFGFRAME\\UI-LFG-ICON-ROLES:16:16:0:0:256:256:72:130:69:127|t"
+env.INLINE_HEALER_ICON = realG.INLINE_HEALER_ICON or "|TInterface\\LFGFRAME\\UI-LFG-ICON-ROLES:16:16:0:0:256:256:72:130:2:60|t"
+env.INLINE_TANK_ICON = realG.INLINE_TANK_ICON or "|TInterface\\LFGFRAME\\UI-LFG-ICON-ROLES:16:16:0:0:256:256:5:63:69:127|t"
 
 -- Lua 5.1 xpcall drops extra arguments; retail passes them to the function
 local realXpcall = xpcall
@@ -323,15 +331,62 @@ function Compat.GetCastSpellID(unit, spellName)
 	return spellIdFromLink(spellName)
 end
 
-env.UnitCastingInfo = function(unit)
+-- nameplate tokens may return no cast info on this client: read it from another unit id pointing at the
+-- same GUID, or synthesize it from the combat log SPELL_CAST_START when no unit id matches
+local EQUIVALENT_UNITS = {"target", "focus", "mouseover", "pettarget"}
+for i = 1, 4 do EQUIVALENT_UNITS[#EQUIVALENT_UNITS + 1] = "party" .. i .. "target" end
+for i = 1, 40 do EQUIVALENT_UNITS[#EQUIVALENT_UNITS + 1] = "raid" .. i .. "target" end
+
+local function isPlateToken(unit)
+	return type(unit) == "string" and unit:find("^nameplate%d") ~= nil
+end
+
+local function equivalentUnits(token)
+	local guid = realG.UnitGUID(token)
+	if not guid then return end
+	local i = 0
+	return function()
+		while true do
+			i = i + 1
+			local unit = EQUIVALENT_UNITS[i]
+			if not unit then return end
+			if realG.UnitGUID(unit) == guid then return unit end
+		end
+	end
+end
+
+local function rawCastingInfo(unit)
 	local name, rank, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = origUnitCastingInfo(unit)
+	if name or not isPlateToken(unit) then return name, rank, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible end
+	for other in equivalentUnits(unit) or noop do
+		name, rank, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = origUnitCastingInfo(other)
+		if name then return name, rank, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible end
+	end
+	local guid = realG.UnitGUID(unit)
+	local entry = guid and castSpellByGUID[guid]
+	if entry and entry.castEnd and entry.castEnd > GetTime() * 1000 then
+		return entry.name, "", entry.name, entry.icon, entry.castStart, entry.castEnd, false, 0, false
+	end
+end
+
+local function rawChannelInfo(unit)
+	local name, rank, text, texture, startTime, endTime, isTradeSkill, notInterruptible = origUnitChannelInfo(unit)
+	if name or not isPlateToken(unit) then return name, rank, text, texture, startTime, endTime, isTradeSkill, notInterruptible end
+	for other in equivalentUnits(unit) or noop do
+		name, rank, text, texture, startTime, endTime, isTradeSkill, notInterruptible = origUnitChannelInfo(other)
+		if name then return name, rank, text, texture, startTime, endTime, isTradeSkill, notInterruptible end
+	end
+end
+
+env.UnitCastingInfo = function(unit)
+	local name, rank, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible = rawCastingInfo(unit)
 	if not name then return nil end
-	return name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, Compat.GetCastSpellID(unit, name)
+	return name, (text and text ~= "" and text) or name, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, Compat.GetCastSpellID(unit, name)
 end
 env.UnitChannelInfo = function(unit)
-	local name, rank, text, texture, startTime, endTime, isTradeSkill, notInterruptible = origUnitChannelInfo(unit)
+	local name, rank, text, texture, startTime, endTime, isTradeSkill, notInterruptible = rawChannelInfo(unit)
 	if not name then return nil end
-	return name, text, texture, startTime, endTime, isTradeSkill, notInterruptible, Compat.GetCastSpellID(unit, name), false, 0
+	return name, (text and text ~= "" and text) or name, texture, startTime, endTime, isTradeSkill, notInterruptible, Compat.GetCastSpellID(unit, name), false, 0
 end
 env.CastingInfo = function() return env.UnitCastingInfo("player") end
 env.ChannelInfo = function() return env.UnitChannelInfo("player") end
@@ -688,6 +743,77 @@ for _, fontName in ipairs({"SystemFont_NamePlate", "SystemFont_NamePlateFixed", 
 		font:SetFontObject(realG.GameFontNormalSmall)
 		env[fontName] = font
 	end
+end
+
+---------------------------------------------------------------------------------------------------
+-- script/mod icons: retail stores icons as file data IDs, which 3.3.5 SetTexture draws as a solid color
+
+local ICON_QUESTIONMARK = [[Interface\Icons\INV_Misc_QuestionMark]]
+local ICON_BY_FILEID = {
+	[133004] = [[Interface\Icons\INV_Gizmo_AdamantiteFrame]],
+	[133006] = [[Interface\Icons\INV_Gizmo_BronzeFramework_01]],
+	[133504] = [[Interface\Icons\INV_Mace_27]],
+	[133689] = [[Interface\Icons\INV_Misc_Bandage_19]],
+	[134229] = [[Interface\Icons\INV_Misc_Horn_03]],
+	[134331] = [[Interface\Icons\INV_Misc_Note_05]],
+	[134411] = [[Interface\Icons\INV_Misc_Ribbon_01]],
+	[135024] = [[Interface\Icons\INV_Shirt_Green_01]],
+	[135358] = [[Interface\Icons\INV_Sword_48]],
+	[135426] = [[Interface\Icons\INV_ThrowingKnife_02]],
+	[135813] = [[Interface\Icons\Spell_Fire_FlameShock]],
+	[135933] = [[Interface\Icons\Spell_Holy_MindSooth]],
+	[135945] = [[Interface\Icons\Spell_Holy_PrayerOfShadowProtection]],
+	[135959] = [[Interface\Icons\Spell_Holy_RighteousFury]],
+	[135984] = [[Interface\Icons\Spell_Holy_UnyieldingFaith]],
+	[136048] = [[Interface\Icons\Spell_Nature_Lightning]],
+	[136139] = [[Interface\Icons\Spell_Shadow_CurseOfSargeras]],
+	[136207] = [[Interface\Icons\Spell_Shadow_ShadowWordPain]],
+	[136224] = [[Interface\Icons\Spell_Shadow_UnholyFrenzy]],
+	[236174] = [[Interface\Icons\Ability_Hunter_Assassinate2]],
+	[236209] = [[Interface\Icons\Ability_Mage_ColdAsIce]],
+	[237026] = [[Interface\Icons\INV_Fabric_Spellweave]],
+	[237377] = [[Interface\Icons\INV_Misc_Horn_04]],
+	[250627] = [[Interface\Icons\INV_Weapon_ShortBlade_93]],
+	--icons added after WotLK, replaced with similar ones
+	[537227] = [[Interface\Icons\Spell_Holy_PrayerOfHealing]], --spell_priest_finalprayer
+	[571554] = [[Interface\Icons\Spell_Holy_SearingLight]], --ability_paladin_blindinglight2
+	[574574] = [[Interface\Icons\Ability_Rogue_Sprint]], --ability_monk_roll
+	[610472] = [[Interface\Icons\Spell_Holy_PowerWordShield]], --spell_mage_temporalshield
+	[629482] = [[Interface\Icons\Spell_Holy_DivineSpirit]], --ability_monk_ascension
+	[629539] = [[Interface\Icons\INV_Misc_Key_10]], --challenges-logo (M+)
+	[841383] = [[Interface\Icons\Ability_Hunter_SniperShot]], --ability_fixated_state_red
+	[878211] = [[Interface\Icons\Ability_Hunter_SniperShot]], --ability_hisek_aim
+	[878218] = [[Interface\Icons\Ability_Poisons]], --ability_xaril_masterpoisoner_blue
+	[1029718] = [[Interface\Icons\Ability_Creature_Cursed_02]], --ability_blackhand_marked4death
+	[1035048] = [[Interface\Icons\INV_Ammo_Bullet_03]], --ability_ironmaidens_ironshot
+	[1723997] = [[Interface\Icons\Spell_Shadow_AntiMagicShell]], --ability_racial_magicalresistance
+	[1966587] = [[Interface\Icons\INV_Weapon_ShortBlade_05]], --inv_knife_1h_nazmirraid_d_02
+	[1990989] = [[Interface\Icons\INV_Misc_Gem_Topaz_02]], --inv_jewelcrafting_80_cutgem02_yellow
+	[2126355] = [[Interface\Icons\INV_Box_PetCarrier_01]], --inv_prairiedog_yellow
+	[2175503] = [[Interface\Icons\Spell_Fire_FelFlameRing]], --spell_fire_felflamering_red
+	[4038101] = [[Interface\Icons\Spell_Arcane_Arcane04]], --spell_progenitor_beam
+	[4263293] = [[Interface\Icons\INV_Misc_Rune_01]], --inv_progenitor_runevessel
+	[4640492] = [[Interface\Icons\Ability_Druid_FlightForm]], --ability_dragonriding_launch01
+}
+--retail-only icon paths found in imported scripts
+local ICON_BY_RETAIL_PATH = {
+	["interface\\icons\\ability_fixated_state_red"] = ICON_BY_FILEID[841383],
+}
+
+function Compat.ResolveIcon(icon)
+	if type(icon) == "number" then
+		return ICON_BY_FILEID[icon] or ICON_QUESTIONMARK
+	elseif type(icon) == "string" then
+		if icon == "" then
+			return icon
+		end
+		local fileID = tonumber(icon)
+		if (fileID) then
+			return ICON_BY_FILEID[fileID] or ICON_QUESTIONMARK
+		end
+		return ICON_BY_RETAIL_PATH[icon:lower():gsub("/", "\\")] or icon
+	end
+	return ICON_QUESTIONMARK
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1393,7 +1519,18 @@ local function onCombatLog(_, subEvent, srcGUID, _, _, dstGUID, _, _, spellId, s
 		local entry = castSpellByGUID[srcGUID]
 		if not entry then entry = {} castSpellByGUID[srcGUID] = entry end
 		entry.id, entry.name = spellId, spellName
+		entry.castStart, entry.castEnd = nil, nil
+		if subEvent == "SPELL_CAST_START" then
+			local _, _, icon, _, _, _, castTime = origGetSpellInfo(spellId)
+			if castTime and castTime > 0 then
+				local now = GetTime() * 1000
+				entry.icon, entry.castStart, entry.castEnd = icon, now, now + castTime
+			end
+		end
+	elseif subEvent == "SPELL_CAST_FAILED" and srcGUID and castSpellByGUID[srcGUID] then
+		castSpellByGUID[srcGUID].castEnd = nil
 	elseif subEvent == "SPELL_INTERRUPT" and dstGUID then
+		if castSpellByGUID[dstGUID] then castSpellByGUID[dstGUID].castEnd = nil end
 		local token = npTokenByGUID(dstGUID)
 		if token and unitState[token] then unitState[token].interrupted = true end
 	elseif subEvent == "UNIT_DIED" and dstGUID then
@@ -1429,7 +1566,6 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, ...)
 	if type(unit) ~= "string" then return end
 	if unit:find("^nameplate%d") then
 		nativeTokenEvents[event] = true
-		if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then nativeTokenEvents.casts = true end
 		if event == "UNIT_HEALTH" then nativeTokenEvents.health = true end
 		return
 	end
@@ -1464,13 +1600,20 @@ local function pollToken(token)
 		st.health, st.healthMax = health, healthMax
 	end
 
-	if not nativeTokenEvents.casts then
-		local name, rank, _, _, startTime, endTime, _, castID, notInterruptible = origUnitCastingInfo(token)
+	do
+		--Native starts may arrive before cast info is readable, or be missing for
+		--other tokens. Poll throughout the cast and repair only missing starts.
+		local plate = activeTokens[token]
+		local unitFrame = plate and plate.unitFramePlater
+		local castBar = unitFrame and unitFrame.castBar
+		local name, rank, _, _, startTime, endTime, _, castID, notInterruptible = rawCastingInfo(token)
 		if name then
-			if not fresh then
-				if not st.casting or st.castStart ~= startTime or st.castName ~= name then
+			if not fresh or castBar then
+				if not st.casting or st.castStart ~= startTime or st.castName ~= name or (castBar and not castBar.casting) then
 					st.interrupted = nil
-					dispatch("UNIT_SPELLCAST_START", token, name, rank, castID)
+					if not castBar or not castBar.casting or castBar.spellStartTime ~= startTime / 1000 then
+						dispatch("UNIT_SPELLCAST_START", token, name, rank, castID)
+					end
 				elseif st.castEnd ~= endTime then
 					dispatch("UNIT_SPELLCAST_DELAYED", token, name, rank, castID)
 				elseif st.notInterruptible ~= notInterruptible then
@@ -1486,12 +1629,14 @@ local function pollToken(token)
 			st.interrupted = nil
 		end
 
-		local cname, crank, _, _, cstart, cend, _, cNotInterruptible = origUnitChannelInfo(token)
+		local cname, crank, _, _, cstart, cend, _, cNotInterruptible = rawChannelInfo(token)
 		if cname then
-			if not fresh then
-				if not st.channeling or st.chanStart ~= cstart or st.chanName ~= cname then
+			if not fresh or castBar then
+				if not st.channeling or st.chanStart ~= cstart or st.chanName ~= cname or (castBar and not castBar.channeling) then
 					st.interrupted = nil
-					dispatch("UNIT_SPELLCAST_CHANNEL_START", token, cname, crank)
+					if not castBar or not castBar.channeling or castBar.spellStartTime ~= cstart / 1000 then
+						dispatch("UNIT_SPELLCAST_CHANNEL_START", token, cname, crank)
+					end
 				elseif st.chanEnd ~= cend then
 					dispatch("UNIT_SPELLCAST_CHANNEL_UPDATE", token, cname, crank)
 				end
@@ -1510,6 +1655,46 @@ local function pollToken(token)
 		auraDirty[token] = nil
 		dispatch("UNIT_AURA", token)
 	end
+
+	if Compat.castDebug and realG.UnitIsUnit(token, "target") then Compat.LogCastState(token) end
+end
+
+-- /p335cast: print the target plate's cast bar state to chat whenever it changes
+local lastCastLog
+function Compat.LogCastState(token)
+	local plate = activeTokens[token]
+	local cb = plate and plate.unitFramePlater and plate.unitFramePlater.castBar
+	local tokName = origUnitCastingInfo(token)
+	local tgtName = origUnitCastingInfo("target")
+	local rawName, _, _, _, rs, re = rawCastingInfo(token)
+	local parts = {
+		"tok=" .. tostring(tokName), "tgt=" .. tostring(tgtName), "raw=" .. tostring(rawName),
+		"dur=" .. (rs and string.format("%.1f", (re - rs) / 1000) or "-"),
+	}
+	if cb then
+		local text = cb.Text
+		local font, size = text:GetFont()
+		local overlay = cb.FrameOverlay
+		parts[#parts + 1] = "cb=" .. (cb:IsShown() and "shown" or "hidden") .. string.format(" a=%.2f", cb:GetAlpha())
+		parts[#parts + 1] = "casting=" .. tostring(cb.casting) .. " fin=" .. tostring(cb.finished)
+		parts[#parts + 1] = "v=" .. string.format("%.0f/%.1f", cb.value or -1, cb.maxValue or -1)
+		parts[#parts + 1] = "txt=" .. tostring(text:GetText()) .. (text:IsVisible() and "" or "(invis)") .. " font=" .. tostring(font and font:match("[^\\/]+$")) .. "/" .. tostring(size)
+		parts[#parts + 1] = "pct=" .. tostring(cb.percentText:GetText())
+		parts[#parts + 1] = "lvl=" .. cb:GetFrameLevel() .. "/" .. (overlay and overlay:GetFrameLevel() or -1) .. " " .. cb:GetFrameStrata() .. "/" .. (overlay and overlay:GetFrameStrata() or "-")
+	else
+		parts[#parts + 1] = "no castBar"
+	end
+	local line = table.concat(parts, " ")
+	if line ~= lastCastLog then
+		lastCastLog = line
+		realG.DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99P335cast|r " .. token .. " " .. line)
+	end
+end
+realG.SLASH_PLATER335CAST1 = "/p335cast"
+realG.SlashCmdList.PLATER335CAST = function()
+	Compat.castDebug = not Compat.castDebug
+	lastCastLog = nil
+	realG.DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99P335cast|r " .. (Compat.castDebug and "on: target a casting mob" or "off"))
 end
 
 local POLL_INTERVAL = 0.1

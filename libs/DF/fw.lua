@@ -1181,9 +1181,26 @@ end
 ---@param self table
 ---@param fontString fontstring
 ---@vararg number
+--on 3.3.5 a failed SetFont leaves the fontstring without a font and it stops rendering text,
+--so unknown font names (e.g. retail-only fonts from imported profiles) fall back to the default font
+local function getFallbackFont()
+	local default = SharedMedia:GetDefault("font")
+	return (default and SharedMedia:Fetch("font", default, true)) or STANDARD_TEXT_FONT or [[Fonts\FRIZQT__.TTF]]
+end
+
+local function safeSetFont(fontString, font, size, flags)
+	font = font or getFallbackFont()
+	size = (size and size > 0) and size or 10
+	flags = flags or ""
+	fontString:SetFont(font, size, flags)
+	if (not fontString:GetFont()) then
+		fontString:SetFont(getFallbackFont(), size, flags)
+	end
+end
+
 function DF:SetFontSize(fontString, ...)
 	local font, _, flags = fontString:GetFont()
-	fontString:SetFont(font, math.max(...), flags)
+	safeSetFont(fontString, font, math.max(...), flags)
 end
 
 ---get the UIObject of type 'FontString' named fontString and set the font to the argument fontface
@@ -1194,10 +1211,13 @@ function DF:SetFontFace(fontString, fontface)
 	local font = SharedMedia:Fetch("font", fontface, true)
 	if (font) then
 		fontface = font
+	elseif (type(fontface) ~= "string" or not fontface:find("[\\/]")) then
+		fontface = getFallbackFont()
 	end
 
 	local _, size, flags = fontString:GetFont()
-	return fontString:SetFont(fontface, size, flags)
+	safeSetFont(fontString, fontface, size, flags)
+	return true
 end
 
 ---get the FontString passed and set the font color
@@ -1469,7 +1489,7 @@ function DF:SetFontOutline(fontString, outline)
 	end
 	outline = (not outline or outline == "NONE") and "" or outline
 
-	fontString:SetFont(font, fontSize, outline)
+	safeSetFont(fontString, font, fontSize, outline)
 end
 
 ---remove spaces from the start and end of the string

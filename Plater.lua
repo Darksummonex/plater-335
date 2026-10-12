@@ -1818,6 +1818,22 @@ Plater.AnchorNamesByPhraseId = {
 		end
 	end
 	
+	--3.3.5a: SetFrameLevel/SetFrameStrata on a frame does not move its child frames (retail does).
+	--the cast bar spell name and timer live on FrameOverlay, so keep the child frames in step with the cast bar,
+	--otherwise the bar fill is drawn over the text while casting.
+	function Plater.SyncCastBarChildFrames (castBar) --private
+		local strata = castBar:GetFrameStrata()
+		local level = castBar:GetFrameLevel()
+		if (castBar.FrameOverlay) then
+			castBar.FrameOverlay:SetFrameStrata (strata)
+			castBar.FrameOverlay:SetFrameLevel (level + 2)
+		end
+		if (castBar.FrameDownlayer) then
+			castBar.FrameDownlayer:SetFrameStrata (strata)
+			castBar.FrameDownlayer:SetFrameLevel ((level > 0) and (level - 1) or 0)
+		end
+	end
+	
 	--this reset the UIParent levels to user default set on the UIParent tab
 	--there's an api that calls this function called Plater.RefreshNameplateStrata()
 	function Plater.UpdateUIParentLevels (unitFrame) --private
@@ -1841,6 +1857,7 @@ Plater.AnchorNamesByPhraseId = {
 			
 			local tmplevel = baseLevel + profile.ui_parent_cast_level + 3
 			castBar:SetFrameLevel ((tmplevel > 0) and tmplevel or 0)
+			Plater.SyncCastBarChildFrames (castBar)
 			
 			tmplevel = baseLevel + profile.ui_parent_buff_level + 3
 			buffFrame1:SetFrameLevel ((tmplevel > 0) and tmplevel or 0)
@@ -1865,6 +1882,7 @@ Plater.AnchorNamesByPhraseId = {
 			local targetStrata = Plater.db.profile.ui_parent_target_strata
 			unitFrame:SetFrameStrata (targetStrata)
 			unitFrame.castBar:SetFrameStrata (targetStrata)
+			Plater.SyncCastBarChildFrames (unitFrame.castBar)
 			unitFrame.BuffFrame:SetFrameStrata (targetStrata)
 			unitFrame.BuffFrame2:SetFrameStrata (targetStrata)
 		end

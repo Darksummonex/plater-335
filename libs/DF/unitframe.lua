@@ -1400,6 +1400,7 @@ detailsFramework.CastFrameFunctions = {
 		end
 	end,
 
+	--3.3.5a: the fade in is played while the cast bar is still hidden, the client never advances it and the bar stays at alpha 0
 	Animation_FadeIn = function(self)
 		self:ScheduleToHide (false)
 
@@ -1407,9 +1408,12 @@ detailsFramework.CastFrameFunctions = {
 			self.fadeOutAnimation:Stop()
 		end
 
-		if (not self.fadeInAnimation:IsPlaying()) then
-			self.fadeInAnimation:Play()
+		if (self.fadeInAnimation:IsPlaying()) then
+			self.fadeInAnimation:Stop()
 		end
+
+		self:Show()
+		self:SetAlpha(1)
 	end,
 
 	Animation_Flash = function(self)

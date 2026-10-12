@@ -2,6 +2,15 @@
 
 Handoff notes for any agent continuing this port. Read this before editing.
 
+## Location (2026-10-12)
+
+- Working copy: `C:\Users\Gaming\Desktop\cursor projects\Plater 335` (git, copied from the Test install).
+- "Send to test": back up `D:\Jogo\Whitemane\Games\FrostmourneRebuffed\Interface\AddOns\Plater` with robocopy `/E`
+  into `.codex-backups\test-plater-before-copy-<stamp>` (in this project), then robocopy this project into it with
+  `/MIR /XD .git .codex-backups` (exit code >= 8 is an error). Never restart a running WoW; ask Alex to `/reload`
+  (a new file or a TOC change needs a client restart).
+- Sibling projects in `cursor projects`: `EUI backport`, `NaowhUI-335` (single NaowhUI project).
+
 ## Target
 
 - Client: WoW 3.3.5a (Lua 5.1, interface 30300), private server "FrostmourneRebuffed" (Whitemane launcher).

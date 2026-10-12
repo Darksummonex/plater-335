@@ -1030,7 +1030,10 @@ function DF:NewSwitch(parent, container, name, member, width, height, leftText, 
 
 	slider.invert_colors = colorInverted
 
-	slider:SetScript("OnClick", SwitchOnClick)
+	--the client passes extra OnClick arguments that must not reach forced_value
+	slider:SetScript("OnClick", function(self, button)
+		SwitchOnClick(self, button)
+	end)
 
 	slider:SetValue(defaultValue)
 
