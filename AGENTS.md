@@ -36,6 +36,25 @@ Handoff notes for any agent continuing this port. Read this before editing.
 - Shell is PowerShell on Windows. SavedVariables: `WTF\Account\<ACCOUNT>\SavedVariables\Plater.lua` (outside this repo; never commit them).
 - Don't edit SavedVariables while the game is running; do data migrations in Lua (see `Plater_WotlkMods.lua` seed pattern).
 
+## Cloud Agent checks
+
+The game client stays on the Windows machine. Cloud agents have Lua 5.1.5 as `lua5.1` and `luac5.1` (`lua` and `luac` are the same binaries via Debian alternatives).
+
+Syntax-check this addon with the same parser the 3.3.5 client uses:
+
+```bash
+find . -name '*.lua' -print0 | xargs -0 -n1 luac5.1 -p
+```
+
+`luac5.1` rejects a UTF-8 BOM. In the sibling `EUI-port` checkout, `EllesmereUIRaidFrames/EUI_RaidFrames_BuffManager2.lua` and `EllesmereUIRaidFrames/EUI_RaidFrames_DebuffManager.lua` start with one; strip the first three bytes before compiling those two files. The rest of `EUI-port` and `NaowhUI-335` compile as Lua 5.1.
+
+Profile-string compression (the LibDeflate path `Plater.DecompressData` uses) and LibStub can be exercised from this directory:
+
+```bash
+lua5.1 libs/LibDeflate/examples/example.lua
+lua5.1 libs/LibStub/tests/test.lua
+```
+
 ## Status / open items
 
 - All BugGrabber errors reported so far are fixed; still in in-game error rounds.
