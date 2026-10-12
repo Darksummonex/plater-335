@@ -4,7 +4,7 @@ local _, platerInternal = ...
 local Plater = Plater
 local DF = DetailsFramework
 
-local SEED_VERSION = 3
+local SEED_VERSION = 4
 
 local MODS = {}
 
@@ -442,6 +442,12 @@ local RETAIL_SCRIPTS = {
 	["Countdown"] = true,
 	["Aura is Shield [P]"] = true,
 	["Cast - Shield Interrupt [P]"] = true,
+	["Relics 9.2 M Dungeons"] = true,
+}
+
+--mods built for retail-only content or APIs
+local RETAIL_MODS = {
+	["M+ Renamer"] = true, --Shadowlands/Dragonflight dungeon mob names and encrypted affix relics
 }
 local RETAIL_LIBRARY_KEYS = {"Explosion Affix M+", "Spiteful Affix", "Countdown", "Aura is Shield [P]", "Cast - Shield Interrupt"}
 
@@ -476,6 +482,20 @@ local function stripRetailTriggers(list, maxId)
 		if (id and id > maxId) then
 			tremove(list, i)
 			changed = true
+		end
+	end
+	return changed
+end
+
+local function removeRetailMods(profile)
+	local changed = false
+	local mods = profile.hook_data
+	if (type(mods) == "table") then
+		for i = #mods, 1, -1 do
+			if (RETAIL_MODS[mods[i].Name]) then
+				tremove(mods, i)
+				changed = true
+			end
 		end
 	end
 	return changed
@@ -521,7 +541,7 @@ local function seed()
 		end
 	end
 
-	local added = false
+	local added = removeRetailMods(profile)
 	for _, info in ipairs(MODS) do
 		if (not existing[info.Name]) then
 			tinsert(profile.hook_data, buildMod(info))
