@@ -1,4 +1,4 @@
---[[
+setfenv(1, PLATER335_ENV); --[[
 This library contains work of Hendrick "nevcairiel" Leppkes
 https://www.wowace.com/projects/libbuttonglow-1-0
 ]]
@@ -58,7 +58,7 @@ end
 -- Example: local texturePath = [[Interface\AddOns\YourAddon\Libs\]]
 -- ===============================================================================
 -- This is the path to the texture files used by this library.
-local texturePath = [[Interface\AddOns\WeakAuras\Libs\]]
+local texturePath = [[Interface\AddOns\Plater\libs\]]
 
 local textureList = {
   buttonGlow = texturePath .. [[LibCustomGlow-1.0\IconAlert]],

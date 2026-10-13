@@ -303,6 +303,29 @@ function Plater.OpenOptionsPanel(pageNumber, bIgnoreLazyLoad)
 
 	mainFrame:SetAllPoints()
 
+	-- Keep stable tab indices for scripts/copy settings, but remove the
+	-- unsupported personal nameplate tab and close its gap in the navigation.
+	do
+		local points = {}
+		for i, button in ipairs(mainFrame.AllButtons) do
+			points[i] = {button.widget:GetPoint(1)}
+		end
+		local visibleIndex = 0
+		for i, button in ipairs(mainFrame.AllButtons) do
+			if i == 8 then
+				button.widget:Hide()
+			else
+				visibleIndex = visibleIndex + 1
+				button.widget:ClearAllPoints()
+				button.widget:SetPoint(unpack(points[visibleIndex]))
+			end
+		end
+		local selectTab = mainFrame.SelectTabByIndex
+		mainFrame.SelectTabByIndex = function(self, index, ...)
+			return selectTab(self, index == 8 and 1 or index, ...)
+		end
+	end
+
 	--> when any setting is changed, call this function
 	local globalCallback = function()
 		Plater.IncreaseRefreshID()
@@ -5368,9 +5391,7 @@ do
 	}
 	
 	if IS_WOW_PROJECT_NOT_MAINLINE then
-		options_personal = {
-			{type = "label", get = function() return "Not available in WoW Classic." end, text_template = DF:GetTemplate ("font", "ORANGE_FONT_TEMPLATE")},
-		}
+		options_personal = {}
 	end
 
 	_G.C_Timer.After(1.3, function() --~delay
@@ -13645,7 +13666,6 @@ end
 		targetOptions, -- target
 		castBar_options, -- cast bar
 		experimental_options, --  level & strata
-		options_personal, -- personal bar
 		debuff_options, -- buff settings
 		especial_aura_settings, -- buff special
 		--ghost auras settings
@@ -13665,7 +13685,6 @@ end
 		mainFrame.AllButtons [3].button.text:GetText(), -- target
 		mainFrame.AllButtons [4].button.text:GetText(), -- cast bar
 		mainFrame.AllButtons [5].button.text:GetText(), -- level & strata
-		mainFrame.AllButtons [8].button.text:GetText(), -- personal bar
 		mainFrame.AllButtons [9].button.text:GetText(), -- buff settings
 		--10 aura filter
 		mainFrame.AllButtons [11].button.text:GetText(), -- buff special

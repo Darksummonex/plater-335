@@ -14,7 +14,7 @@ local envMeta = {__index = realG}
 local env = setmetatable({}, envMeta)
 env._G = env
 PLATER335_ENV = env
-PLATER335_VERSION = 19
+PLATER335_VERSION = 21
 
 local Compat = {}
 env.Plater335 = Compat
@@ -722,6 +722,23 @@ env.C_GuildInfo = {}
 env.C_Spell = false
 env.C_Item = false
 
+-- LibRangeCheck uses retail Item objects even on its Wrath path. Keep this
+-- adapter private: uncached IDs must remain eligible for its timeout/retry
+-- queue, rather than being mistaken for empty items.
+if not realG.Item then
+	env.Item = {
+		CreateFromItemID = function(_, itemID)
+			local id = tonumber(itemID)
+			return {
+				IsItemEmpty = function() return not id or id <= 0 end,
+				IsItemDataCached = function()
+					return id ~= nil and id > 0 and realG.GetItemInfo(id) ~= nil
+				end,
+			}
+		end,
+	}
+end
+
 env.Settings = false
 env.SettingsPanel = false
 env.BackdropTemplateMixin = {}
@@ -888,6 +905,20 @@ do
 	add(ALL, "SetTexelSnappingBias", noop)
 	add(ALL, "IsObjectLoaded", retTrue)
 	add({"Button", "CheckButton"}, "SetEnabled", function(self, enabled) if enabled then self:Enable() else self:Disable() end end)
+	-- Wrath EditBoxes lack the retail enabled-state API used by DF text entries.
+	-- Disable actual input as well as reporting the state to hover/lock handlers.
+	add({"EditBox"}, "IsEnabled", function(self) return self.__p335enabled ~= false end)
+	add({"EditBox"}, "Enable", function(self)
+		self.__p335enabled = true
+		self:EnableMouse(true)
+		self:EnableKeyboard(true)
+	end)
+	add({"EditBox"}, "Disable", function(self)
+		self.__p335enabled = false
+		self:ClearFocus()
+		self:EnableMouse(false)
+		self:EnableKeyboard(false)
+	end)
 	add({"Slider", "EditBox"}, "SetEnabled", function(self, enabled) if enabled then if self.Enable then self:Enable() end else if self.Disable then self:Disable() end end end)
 
 	add(FRAMES, "SetResizeBounds", function(self, minW, minH, maxW, maxH)

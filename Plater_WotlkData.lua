@@ -1,7 +1,7 @@
 setfenv(1, PLATER335_ENV); 
 --WotLK npc/spell seed data for the Npc Colors, Cast Colors and Spell List panels, generated from the installed DBM WotLK modules
 local Plater = _G.Plater
-local SEED_VERSION = 1
+local SEED_VERSION = 2
 
 --[npcID] = {name, zone}
 local NPCS = {
@@ -1201,6 +1201,21 @@ local function seed()
 	local profile = Plater.db and Plater.db.profile
 	if (not profile or not PlaterDB) then
 		return
+	end
+
+	-- Imported retail profiles carry their NPC cache, colors and renames.
+	-- Apply on every DB refresh so later imports cannot restore these entries.
+	-- Use the same 3.3.5 creature-ID limit as the script-trigger cleanup.
+	for _, key in ipairs({"npc_cache", "npc_colors", "npcs_renamed"}) do
+		local entries = profile[key]
+		if (type(entries) == "table") then
+			for npcID in pairs(entries) do
+				local id = tonumber(npcID)
+				if (id and id > 40500) then
+					entries[npcID] = nil
+				end
+			end
+		end
 	end
 
 	if (profile.wotlk_seed_version ~= SEED_VERSION) then

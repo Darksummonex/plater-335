@@ -317,6 +317,7 @@ function Plater.Resources.BuildResourceOptionsTab(frame)
             end,
             name = "Show On Personal Bar",
             desc = "Show On Personal Bar",
+            hidden = true, -- personal nameplates are unavailable on 3.3.5
         },
 
         --show depleted
